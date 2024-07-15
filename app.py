@@ -40,12 +40,7 @@ def text_to_speech(text):
         tts.save(fp.name)
         return fp.name
 
-def speech_to_text(audio_file):
-    with open(audio_file, "rb") as file:
-        transcript = openai.Audio.transcribe("whisper-1", file)
-    return transcript["text"]
-
-st.title("AI Chatbot with Simulated Live Speech")
+st.title("AI Chatbot with Simulated Speech Input")
 
 api_choice = st.radio("Choose API:", ("OpenAI", "GROQ"))
 
@@ -56,38 +51,30 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-st.write("Click 'Start Recording' and speak. Click 'Stop Recording' when you're done. Say 'stop', 'quit', or 'exit' to end the conversation.")
+st.write("Enter your message in the text box below and click 'Speak' to simulate speech input. Type 'stop', 'quit', or 'exit' to end the conversation.")
 
-audio = st.audio_recorder(start_prompt="Start Recording", stop_prompt="Stop Recording")
+user_input = st.text_input("Your message:", "")
 
-if audio is not None:
-    # Save the recorded audio to a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-        tmp_file.write(audio.tobytes())
-        tmp_file_path = tmp_file.name
+if st.button("Speak"):
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
-    # Transcribe the audio
-    user_input = speech_to_text(tmp_file_path)
-    os.unlink(tmp_file_path)
-
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    if user_input.lower() in ["stop", "quit", "exit"]:
-        st.write("Conversation ended.")
-    else:
-        if api_choice == "OpenAI":
-            response = generate_response_openai(user_input)
+        if user_input.lower() in ["stop", "quit", "exit"]:
+            st.write("Conversation ended.")
         else:
-            response = generate_response_groq(user_input)
+            if api_choice == "OpenAI":
+                response = generate_response_openai(user_input)
+            else:
+                response = generate_response_groq(user_input)
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        with st.chat_message("assistant"):
-            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            with st.chat_message("assistant"):
+                st.markdown(response)
 
-        audio_file = text_to_speech(response)
-        st.audio(audio_file)
-        os.unlink(audio_file)
+            audio_file = text_to_speech(response)
+            st.audio(audio_file)
+            os.unlink(audio_file)
 
-    st.experimental_rerun()
+        st.experimental_rerun()
