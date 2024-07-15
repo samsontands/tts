@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 from gtts import gTTS
-import speech_recognition as sr
 import os
 import tempfile
 import requests
@@ -40,24 +39,12 @@ def text_to_speech(text):
         tts.save(fp.name)
         return fp.name
 
-def speech_to_text():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.write("Listening... Speak now!")
-        audio = r.listen(source)
-        st.write("Processing speech...")
-    
-    try:
-        text = r.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        st.write("Sorry, I couldn't understand that.")
-        return None
-    except sr.RequestError:
-        st.write("Sorry, there was an error processing your speech.")
-        return None
+def speech_to_text(audio_file):
+    with open(audio_file, "rb") as file:
+        transcript = openai.Audio.transcribe("whisper-1", file)
+    return transcript["text"]
 
-st.title("AI Chatbot with Speech Recognition and Text-to-Speech")
+st.title("AI Chatbot with OpenAI Whisper and Text-to-Speech")
 
 api_choice = st.radio("Choose API:", ("OpenAI", "GROQ"))
 
@@ -66,12 +53,15 @@ input_method = st.radio("Choose input method:", ("Text", "Speech"))
 if input_method == "Text":
     user_input = st.text_input("You:", "")
 else:
-    if st.button("Start Speaking"):
-        user_input = speech_to_text()
-        if user_input:
-            st.write(f"You said: {user_input}")
-        else:
-            st.write("No speech detected. Please try again.")
+    uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
+    if uploaded_file is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_file_path = tmp_file.name
+        
+        user_input = speech_to_text(tmp_file_path)
+        st.write(f"Transcription: {user_input}")
+        os.unlink(tmp_file_path)
 
 if st.button("Send") and user_input:
     # Generate response based on API choice
